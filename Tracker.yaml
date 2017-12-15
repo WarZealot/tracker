@@ -18,4 +18,5 @@ Resources:
           Properties:
             Path: /track
             Method: GET
+      AutoPublishAlias: live
 

@@ -71,6 +71,7 @@ public class Handler implements RequestStreamHandler {
     private void tryUploadFile(final String dstBucket, final String dstKey, final AmazonS3 client, String content) {
         try {
             client.putObject(dstBucket, dstKey, content);
+            System.out.println("Successfully uploaded to S3");
         } catch (AmazonServiceException ase) {
             System.out.println("Caught an AmazonServiceException, which " + "means your request made it " +
                     "to Amazon S3, but was rejected with an error response" + " for some reason.");
