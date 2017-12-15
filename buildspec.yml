@@ -5,8 +5,8 @@ phases:
     commands:
       - mvn package
 #      - aws cloudformation package --template-file Tracker.yaml --output-template-file serverless-output.yaml --s3-bucket ktka-cloudformation-tracker
-      - aws cloudformation deploy --template-file serverless-output.yaml --stack-name pipelineStage
+#      - aws cloudformation deploy --template-file serverless-output.yaml --stack-name pipelineStage
 artifacts:
   files:
     - target/tracker-1.0-SNAPSHOT.jar
-    - serverless-output.yaml
+#    - serverless-output.yaml
