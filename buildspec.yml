@@ -3,9 +3,8 @@ version: 0.2
 phases:
   post_build:
     commands:
-      - echo Build completed on `date`
       - mvn package
+      - aws cloudformation package --template-file Tracker.yaml --output-template-file serverless-output.yaml --s3-bucket ktka-cloudformation-tracker
 artifacts:
   files:
     - target/tracker-1.0-SNAPSHOT.jar
-  discard-paths: yes

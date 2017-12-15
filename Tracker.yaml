@@ -9,7 +9,7 @@ Resources:
       Runtime: java8
       CodeUri: target/tracker-1.0-SNAPSHOT.jar
       Description: ''
-      MemorySize: 512
+      MemorySize: 256
       Timeout: 10
       Role: 'arn:aws:iam::613651897342:role/service-role/myNewRole'
       Events:
