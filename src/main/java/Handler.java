@@ -1,11 +1,6 @@
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.lambda.runtime.Context;
+import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3Client;
-import org.joda.time.DateTimeFieldType;
-import org.joda.time.Instant;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -14,28 +9,63 @@ import org.jsoup.select.Elements;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
 public class Handler implements RequestStreamHandler {
 
-    private static final String BUCKET = "ktka-learn-tracker";
-    private static final String KEY = "-headlines.txt";
+    private static final String RDS_HOSTNAME = "trackerdb.coudjpfzgtpn.eu-central-1.rds.amazonaws.com";
+    private static final String RDS_PORT = "5432";
+    private static final String RDS_DB_NAME = "trackerDB";
+    private static final String RDS_USERNAME = "ktkachuk";
+    private static final String RDS_PASSWORD = "monster2";
 
     public void handleRequest(final InputStream inputStream, final OutputStream outputStream, final Context context) {
-        handleRequest();
+        handleRequest("", context);
     }
 
-    public String handleRequest() {
+    public String handleRequest(String input, Context context) {
+        LambdaLogger logger = context.getLogger();
+        try {
+            logger.log("\nCalling Class.forName");
+            Class.forName("org.postgresql.Driver");
+
+            String url = "jdbc:postgresql://" + RDS_HOSTNAME + ":" + RDS_PORT + "/" + RDS_DB_NAME;
+            logger.log("\nEstablishing connection: " + url);
+            DriverManager.setLoginTimeout(5);
+            Connection conn = DriverManager.getConnection(url, RDS_USERNAME, RDS_PASSWORD);
+
+            logger.log("\nTest Started");
+            Statement stmt = conn.createStatement();
+
+            ResultSet resultSet = stmt.executeQuery("SELECT NOW()");
+
+            String currentTime = "Could not get from DB.";
+            if (resultSet.next()) {
+                currentTime = resultSet.getObject(1).toString();
+            }
+
+            logger.log("\nSuccessfully executed query.  Result: " + currentTime);
+        } catch (Exception e) {
+            logger.log("\nReceived exception: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        printGolemHeadlines();
+
+        return null;
+    }
+
+    public String printGolemHeadlines() {
         try {
             System.out.println("Attempting to get golem.de");
             final Document document = Jsoup.connect("http://www.golem.de").get();
             System.out.println("Successfully acquired golem.de");
             final Elements headlines = document.select(".head2");
-            final String data = toString(headlines);
-            System.out.println("Data parsed: " + data);
 
-            final AmazonS3 amazonS3 = buildS3Client();
-            System.out.println("Attempting to upload data");
-            tryUploadFile(BUCKET, currentTime(), amazonS3, data);
+            System.out.println("Acquired data: " + toString(headlines));
 
         } catch (IOException e) {
             System.out.println("An exception occurred: " + e.getMessage());
@@ -45,49 +75,11 @@ public class Handler implements RequestStreamHandler {
         return "OK";
     }
 
-    private String currentTime() {
-        final Instant now = Instant.now();
-        final int year = now.get(DateTimeFieldType.year());
-        final int month = now.get(DateTimeFieldType.monthOfYear());
-        final int day = now.get(DateTimeFieldType.dayOfMonth());
-        final int hours = now.get(DateTimeFieldType.clockhourOfDay());
-        final int minutes = now.get(DateTimeFieldType.minuteOfHour());
-        final int seconds = now.get(DateTimeFieldType.secondOfMinute());
-        return year + "-" + month + "-" + day + "---" + hours + "-" + minutes + "-" + seconds + KEY;
-    }
-
-    private AmazonS3 buildS3Client() {
-        return AmazonS3Client.builder().build();
-    }
-
     private String toString(final Elements headlines) {
         StringBuffer result = new StringBuffer();
         for (Element headline : headlines) {
             result.append("\n" + headline.text());
         }
         return result.toString();
-    }
-
-    private void tryUploadFile(final String dstBucket, final String dstKey, final AmazonS3 client, String content) {
-        try {
-            client.putObject(dstBucket, dstKey, content);
-            System.out.println("Successfully uploaded to S3");
-        } catch (AmazonServiceException ase) {
-            System.out.println("Caught an AmazonServiceException, which " + "means your request made it " +
-                    "to Amazon S3, but was rejected with an error response" + " for some reason.");
-            System.out.println("Error Message:    " + ase.getMessage());
-            System.out.println("HTTP Status Code: " + ase.getStatusCode());
-            System.out.println("AWS Error Code:   " + ase.getErrorCode());
-            System.out.println("Error Type:       " + ase.getErrorType());
-            System.out.println("Request ID:       " + ase.getRequestId());
-        } catch (AmazonClientException ace) {
-            System.out.println("Caught an AmazonClientException, which " + "means the client encountered " +
-                    "an internal error while trying to " + "communicate with S3, " +
-                    "such as not being able to access the network.");
-            System.out.println("Error Message: " + ace.getMessage());
-        } catch (Exception e) {
-            System.out.println("Caught some other unexpected exception: " + e.getMessage());
-            e.printStackTrace();
-        }
     }
 }
